@@ -1,6 +1,6 @@
 Title/Description:
     
-    This is Assignment#1 of week#2 at FlyRank Ai internship. In this, we had created app having a CRUD operation that connected with Database. 
+    This is Assignment#1 of week#3 at FlyRank Ai internship. In this, we had created app having a CRUD operation that connected with Database. 
 
 Tech stack:	
     

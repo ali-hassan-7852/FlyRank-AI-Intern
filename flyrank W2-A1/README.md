@@ -17,7 +17,7 @@ How to run:
 
     Run this in your main.py terminal:
 
-                    python dev main.py --reload
+                   uvicorn main:app --reload
 
 
 

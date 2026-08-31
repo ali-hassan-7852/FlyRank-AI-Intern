@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from SRC.tasks.routers import task_router
 from SRC.utils.db import Base, engine, localsession
 from SRC.tasks.models import TaskModel
-
+from SRC.auth.protected_routers import public_router, protected_router
 from SRC.auth.routers import auth_router
 
 Base.metadata.create_all(engine)
@@ -24,3 +24,6 @@ finally:
 app = FastAPI(title="User data manager", description="Assignment NO 2 at FlyRank")
 app.include_router(task_router)
 app.include_router(auth_router)
+
+app.include_router(public_router)
+app.include_router(protected_router)

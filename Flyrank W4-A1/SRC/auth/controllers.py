@@ -27,3 +27,9 @@ def login(body: AuthSchema):
         "access_token": result.session.access_token,
         "refresh_token": result.session.refresh_token,
     }
+    
+def logout():
+    try:
+        supabase.auth.sign_out()
+    except Exception as e:
+        raise HTTPException(400, detail=str(e))

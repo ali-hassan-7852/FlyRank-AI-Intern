@@ -1,14 +1,14 @@
-from fastapi import APIRouter, Header, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from SRC.utils.supabase_client import supabase
 
 public_router = APIRouter(tags=["public"])
 protected_router = APIRouter(prefix="/protected", tags=["protected"])
 
-def get_current_user(authorization: str = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, detail="Access token required")
+bearer_scheme = HTTPBearer()
 
-    token = authorization.split(" ")[1]
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    token = credentials.credentials
 
     try:
         result = supabase.auth.get_user(token)

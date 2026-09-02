@@ -1,85 +1,128 @@
-# FlyRank Backend Track — A3: Containerize your stack
+# FlyRank Backend Track — A4: Auth · Login & protect
 
-Assignment #3 at FlyRank AI Internship. This app is a task CRUD API — previously backed by in-memory storage (A1) and SQLite (A2) — now running against a real **PostgreSQL** database inside **Docker**, with the entire stack (API + database) started using a single command via **Docker Compose**.
+Assignment #4 at FlyRank AI Internship. This is a task CRUD API — backed by PostgreSQL running in Docker — now secured with **Supabase Auth**. Users can sign up, log in, and log out, and specific routes are protected so they only respond to logged-in users with a valid access token.
 
 ## Tech stack
 
-Python, FastAPI, PostgreSQL, SQLAlchemy, Pydantic, Docker, Docker Compose
+Python, FastAPI, PostgreSQL, SQLAlchemy, Supabase Auth, Pydantic, Docker, Docker Compose
 
 ## Prerequisites
 
-You need Docker installed and running — that's the only manual setup required.
+You need Docker installed and running.
 
-- Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (free for personal use, Windows/Mac/Linux).
-- After installing, make sure the Docker Desktop app is open and running before continuing.
-- Confirm it works:
+- Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (free, Windows/Mac/Linux).
+- Confirm it's running:
   ```bash
   docker --version
   docker ps
   ```
-  `docker ps` should return an empty table (not an error).
 
-No local Python install, no local Postgres install, and no manual database setup are needed — Docker handles all of that.
+You also need a free [Supabase](https://supabase.com) account and project — no credit card required.
+
+## Setup
+
+1. Clone the repo and `cd` into the project folder.
+2. Copy the environment template:
+   ```bash
+   cp .env.example .env
+   ```
+3. Create a free project at [supabase.com](https://supabase.com), then go to **Project Settings → API** and copy your **Project URL** and **anon key** into `.env`.
+4. In your Supabase dashboard, go to **Authentication → Sign In / Providers → Email** and turn **OFF** "Confirm email" (so test signups can log in immediately without checking an inbox).
+5. Fill in `.env`:
+   ```dotenv
+   DB_CONNECTION="postgresql://postgres:dev@localhost:5432/tasks"
+   SUPABASE_URL="https://your-project-ref.supabase.co"
+   SUPABASE_KEY="your-anon-key"
+   PORT=8000
+   ```
 
 ## How to run (one command)
 
-No manual database setup, no local Postgres install. Everything runs in containers.
-
 ```bash
-git clone <your-repo-url>
-cd <project-folder>
-cp .env.example .env
 docker compose up
 ```
 
-The API will be available at `http://localhost:8000`, with interactive docs at `http://localhost:8000/docs`.
+The API is available at `http://localhost:8000`, with interactive docs at `http://localhost:8000/docs`.
 
-To stop everything:
+To stop:
 ```bash
 docker compose down
 ```
 
-Your data persists across restarts (`docker compose down` then `docker compose up` again) because it's stored in a Docker volume, not inside the container itself.
+Task data persists across restarts via a Docker volume.
 
-## Environment variables
+## Endpoint reference
 
-Create a `.env` file in the project root (a git-ignored file — never commit real credentials). Use `.env.example` as a template:
+| Route                         | Method | Auth required           | Purpose                         |
+|-------------------------------|--------|--------------------------|----------------------------------|
+| `/auth/signup`                | POST   | None                     | Create a new user account       |
+| `/auth/login`                 | POST   | None                     | Authenticate & return a JWT     |
+| `/auth/logout`                | POST   | Bearer token             | End the user's session          |
+| `/public/info`                | GET    | None                     | Open, unauthenticated data      |
+| `/protected/profile`          | GET    | Bearer token             | Read the logged-in user's data  |
+| `/protected/dashboard`        | GET    | Bearer token             | Example second protected route  |
+| `/tasks/create`               | POST   | None                     | Create a task                   |
+| `/tasks/get_tasks`            | GET    | None                     | List all tasks                  |
+| `/tasks/one_task/{id}`        | GET    | None                     | Get a single task               |
+| `/tasks/update_task/{id}`     | PUT    | None                     | Update a task                   |
+| `/tasks/delete_task/{id}`     | DELETE | None                     | Delete a task                   |
 
-```dotenv
-DB_CONNECTION="postgresql://postgres:dev@localhost:5432/tasks"
-```
-
-> Note: when running via `docker compose up`, the app connects to the database using the service name `db` instead of `localhost` — this is already configured inside `compose.yaml` and requires no action from you.
-
-## Endpoint table
-
-| CRUD operation | HTTP Method | Path                | Meaning                  |
-|-----------------|-------------|----------------------|---------------------------|
-| Create          | POST        | `/create_task`       | Create a new task        |
-| Read (all)      | GET         | `/all_task`          | List all tasks           |
-| Update          | PUT         | `/update_task/{id}`  | Update a task by id      |
-| Delete          | DELETE      | `/delete_task/{id}`  | Delete a task by id      |
+Protected routes expect an `Authorization: Bearer <access_token>` header, using the token returned from `/auth/login`.
 
 ## Example request/response
 
+**Signup:**
 ```bash
-curl -i http://localhost:8000/all_task
+curl -i -X POST http://localhost:8000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email":"testuser@gmail.com","password":"password123"}'
 ```
+→ `201 Created` with the new user object.
 
+**Login:**
+```bash
+curl -i -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"testuser@gmail.com","password":"password123"}'
 ```
-HTTP/1.1 200 OK
-content-type: application/json
-
+→ `200 OK`:
+```json
 {
-  "status": "Tasks retrieved successfully",
-  "data": [
-    { "id": 1, "name": "Buy groceries", "info": "Milk, eggs, bread", "is_complete": false },
-    { "id": 2, "name": "Write report", "info": "Q3 summary for team", "is_complete": false },
-    { "id": 3, "name": "Call dentist", "info": "Reschedule appointment", "is_complete": true }
-  ]
+  "status": "Login successful",
+  "access_token": "eyJhbGciOi...",
+  "refresh_token": "..."
 }
 ```
 
-## Database screenshot
+**Accessing a protected route:**
+```bash
+curl -i http://localhost:8000/protected/profile \
+  -H "Authorization: Bearer <access_token>"
+```
+→ `200 OK`:
+```json
+{
+  "id": "6f269155-434d-4966-8780-22ae5721f5d9",
+  "email": "testuser@gmail.com",
+  "created_at": "2026-08-31T17:00:11.892558+00:00"
+}
+```
 
-_(Add a screenshot here showing your data inside Postgres — e.g. via `docker exec -it taskdb psql -U postgres -d tasks` running `\dt` and `SELECT * FROM "User_Data";`, or a GUI tool like DBeaver/pgAdmin.)_
+A missing, malformed, or invalid/expired token returns `401 Unauthorized` with a JSON error message.
+
+## Swagger UI — bearer auth
+
+`/docs` shows a padlock icon on every protected route. Click **Authorize**, paste an access token from `/auth/login` (no "Bearer" prefix needed — Swagger adds it), then use **Try it out** on any protected route directly from the browser.
+
+_(Insert your Swagger screenshot here — Authorize dialog + a successful "Try it out" response on `/protected/profile`.)_
+
+## Status codes
+
+| Code | Meaning                                            |
+|------|-----------------------------------------------------|
+| 200  | Success (read / login)                              |
+| 201  | Resource created (signup, task create)             |
+| 204  | Success, no content (logout, task delete)          |
+| 400  | Bad request — missing/invalid input                |
+| 401  | Missing, malformed, or invalid/expired token        |
+| 404  | Resource not found                                  |

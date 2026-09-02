@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Header, HTTPException
+from SRC.utils.supabase_client import supabase
 
 public_router = APIRouter(tags=["public"])
 protected_router = APIRouter(prefix="/protected", tags=["protected"])
@@ -11,7 +12,22 @@ def public_info():
 def profile(authorization: str = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, detail="Access token required")
-    
+
     token = authorization.split(" ")[1]
-    # Not verifying yet — just confirming a token was presented (Stage 3 adds verification)
-    return {"message": "Token received (not yet verified)"}
+
+    try:
+        result = supabase.auth.get_user(token)
+    except Exception as e:
+        print("DEBUG get_user error:", repr(e))
+        raise HTTPException(401, detail="Invalid or expired token")
+
+    if not result or not result.user:
+        print("DEBUG result was falsy:", result)
+        raise HTTPException(401, detail="Invalid or expired token")
+
+    user = result.user
+    return {
+        "id": user.id,
+        "email": user.email,
+        "created_at": user.created_at,
+    }
